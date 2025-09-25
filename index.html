@@ -1,0 +1,1767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Граф биоритмов - Улучшенная версия</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            color: #e8e8e8;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+        
+        .biorhythm-panel {
+            width: 280px;
+            background: rgba(15, 15, 30, 0.95);
+            border-right: 1px solid #2a4d69;
+            padding: 20px;
+            height: 100vh;
+            overflow-y: auto;
+            box-shadow: 5px 0 15px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            transition: transform 0.3s ease;
+        }
+        
+        .panel-toggle {
+            position: absolute;
+            top: 10px;
+            right: -40px;
+            background: #2a4d69;
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 0 5px 5px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .biorhythm-panel h2 {
+            color: #4da6ff;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 22px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #2a4d69;
+        }
+        
+        .person-selector {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(26, 42, 58, 0.8);
+            color: #e8e8e8;
+            font-size: 14px;
+            border: 1px solid #2a4d69;
+        }
+        
+        .biorhythm-display {
+            margin-bottom: 25px;
+        }
+        
+        .biorhythm-bar {
+            height: 8px;
+            background: rgba(42, 77, 105, 0.5);
+            border-radius: 4px;
+            margin: 15px 0;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .biorhythm-fill {
+            height: 100%;
+            border-radius: 4px;
+            position: relative;
+        }
+        
+        .physical-fill { background: linear-gradient(to right, #4da6ff, #66c2ff); }
+        .emotional-fill { background: linear-gradient(to right, #ff6b6b, #ff8e8e); }
+        .intellectual-fill { background: linear-gradient(to right, #9b59b6, #b57edc); }
+        
+        .biorhythm-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+        
+        .biorhythm-name {
+            font-weight: 600;
+            color: #a3c6e0;
+        }
+        
+        .biorhythm-value {
+            font-weight: bold;
+        }
+        
+        .positive { color: #4da6ff; }
+        .negative { color: #ff6b6b; }
+        .neutral { color: #f1c40f; }
+        
+        .biorhythm-description {
+            margin-top: 25px;
+            padding: 15px;
+            background: rgba(26, 42, 58, 0.5);
+            border-radius: 8px;
+            border-left: 3px solid #4da6ff;
+        }
+        
+        .biorhythm-description h3 {
+            color: #4da6ff;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        .biorhythm-description p {
+            font-size: 14px;
+            line-height: 1.5;
+            color: #a3c6e0;
+        }
+        
+        .biorhythm-date {
+            text-align: center;
+            margin-top: 15px;
+            color: #a3c6e0;
+            font-size: 13px;
+            font-style: italic;
+        }
+        
+        #map {
+            height: 100vh;
+            flex: 1;
+            background: #000000 !important;
+        }
+        
+        .settings-btn {
+            position: fixed;
+            top: 20px;
+            left: 300px;
+            z-index: 1000;
+            background: linear-gradient(45deg, #4da6ff, #268bd2);
+            border: none;
+            padding: 15px 20px;
+            border-radius: 25px;
+            color: #ffffff;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 20px rgba(77, 166, 255, 0.3);
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+        
+        .settings-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(77, 166, 255, 0.5);
+        }
+        
+        .map-legend {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 15, 30, 0.95);
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+            z-index: 500;
+            backdrop-filter: blur(10px);
+            border: 2px solid #4da6ff;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #e8e8e8;
+        }
+        
+        .legend-icon {
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(8px);
+        }
+        
+        .modal-content {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 85vh;
+            overflow-y: auto;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+            border: 2px solid #4da6ff;
+            animation: modalAppear 0.3s ease-out;
+        }
+        
+        @keyframes modalAppear {
+            from {
+                opacity: 0;
+                transform: scale(0.8) translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        
+        .modal-header {
+            padding: 25px;
+            background: rgba(77, 166, 255, 0.1);
+            border-bottom: 2px solid #4da6ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .modal-header h2 {
+            color: #4da6ff;
+            font-size: 24px;
+            margin: 0;
+            text-shadow: 0 0 10px rgba(77, 166, 255, 0.5);
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: #e8e8e8;
+            font-size: 28px;
+            cursor: pointer;
+            width: auto;
+            padding: 5px 10px;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .close-btn:hover {
+            color: #4da6ff;
+        }
+        
+        .modal-body {
+            padding: 30px;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 18px;
+            margin-bottom: 15px;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #4da6ff, #268bd2);
+            color: #ffffff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            box-shadow: 0 5px 15px rgba(77, 166, 255, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(77, 166, 255, 0.5);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            box-shadow: 0 5px 15px rgba(155, 89, 182, 0.3);
+        }
+        
+        .btn-secondary:hover {
+            box-shadow: 0 8px 25px rgba(155, 89, 182, 0.5);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+        }
+        
+        .btn-danger:hover {
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.5);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12, #d35400);
+            box-shadow: 0 5px 15px rgba(243, 156, 18, 0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 10px;
+            color: #4da6ff;
+            font-weight: 600;
+            font-size: 16px;
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            background: rgba(15, 15, 30, 0.8);
+            color: #e8e8e8;
+            font-size: 14px;
+            border: 2px solid #2a4d69;
+            transition: all 0.3s ease;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(77, 166, 255, 0.3);
+            border-color: #4da6ff;
+        }
+        
+        /* Таблицы биоритмов */
+        .biorhythms-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: rgba(15, 15, 30, 0.6);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid #2a4d69;
+        }
+        
+        .biorhythms-table th,
+        .biorhythms-table td {
+            padding: 12px 15px;
+            text-align: center;
+            border-bottom: 1px solid #2a4d69;
+        }
+        
+        .biorhythms-table th {
+            background: rgba(77, 166, 255, 0.2);
+            color: #4da6ff;
+            font-weight: 600;
+        }
+        
+        .biorhythms-table tr:hover {
+            background: rgba(77, 166, 255, 0.1);
+        }
+        
+        .biorhythm-value {
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+        
+        .positive { 
+            background: rgba(46, 204, 113, 0.3);
+            color: #2ecc71;
+        }
+        .negative { 
+            background: rgba(231, 76, 60, 0.3);
+            color: #e74c3c;
+        }
+        .neutral { 
+            background: rgba(241, 196, 15, 0.3);
+            color: #f1c40f;
+        }
+        
+        /* Список кандидатов */
+        .candidates-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+        
+        .candidate-item {
+            padding: 15px;
+            background: rgba(15, 15, 30, 0.7);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .candidate-item:hover {
+            background: rgba(15, 15, 30, 0.9);
+            border-color: #2a4d69;
+            transform: translateY(-2px);
+        }
+        
+        .candidate-item.selected {
+            background: rgba(77, 166, 255, 0.2);
+            border-color: #4da6ff;
+            box-shadow: 0 5px 15px rgba(77, 166, 255, 0.3);
+        }
+        
+        .candidate-name {
+            font-weight: 700;
+            color: #e8e8e8;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+        
+        .candidate-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+        }
+        
+        .candidate-location {
+            color: #aaa;
+            font-size: 14px;
+        }
+        
+        .candidate-value {
+            color: #4da6ff;
+            font-weight: 700;
+            font-size: 16px;
+        }
+        
+        .strategy-section {
+            background: rgba(15, 15, 30, 0.8);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+            border: 2px solid #2a4d69;
+        }
+        
+        .intermediary-choice {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(77, 166, 255, 0.1);
+            border-radius: 12px;
+            border: 1px solid #4da6ff;
+        }
+        
+        .intermediary-options {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .intermediary-btn {
+            flex: 1;
+            min-width: 120px;
+            padding: 12px 15px;
+            background: linear-gradient(135deg, #9b59b6, #8e44ad);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+        
+        .intermediary-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(155, 89, 182, 0.4);
+        }
+        
+        .intermediary-btn.selected {
+            background: linear-gradient(135deg, #4da6ff, #268bd2);
+            box-shadow: 0 5px 15px rgba(77, 166, 255, 0.4);
+        }
+        
+        .path-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(15, 15, 30, 0.6);
+            border-radius: 12px;
+            border: 1px solid #2a4d69;
+        }
+        
+        .step-number {
+            background: linear-gradient(135deg, #4da6ff, #268bd2);
+            color: #ffffff;
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            margin-right: 20px;
+            box-shadow: 0 3px 10px rgba(77, 166, 255, 0.3);
+        }
+        
+        .step-content {
+            flex: 1;
+        }
+        
+        .step-arrow {
+            margin: 0 15px;
+            color: #4da6ff;
+            font-size: 20px;
+        }
+        
+        .interaction-result {
+            background: rgba(15, 15, 30, 0.8);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
+            border: 2px solid #4da6ff;
+        }
+        
+        .biorhythm-comparison {
+            display: flex;
+            justify-content: space-between;
+            margin: 20px 0;
+            align-items: center;
+        }
+        
+        .biorhythm-before, .biorhythm-after {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            background: rgba(77, 166, 255, 0.1);
+            border-radius: 10px;
+            margin: 0 10px;
+        }
+        
+        .biorhythm-arrow {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 20px;
+            color: #4da6ff;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .biorhythm-display-value {
+            font-size: 28px;
+            font-weight: 700;
+            margin: 15px 0;
+        }
+        
+        .journey-line {
+            stroke-dasharray: 10, 5;
+            animation: dash 2s linear infinite;
+        }
+        
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -15;
+            }
+        }
+        
+        .current-position {
+            stroke: #4da6ff !important;
+            stroke-width: 4px !important;
+            fill: #4da6ff !important;
+            filter: drop-shadow(0 0 10px #4da6ff);
+        }
+        
+        @media (max-width: 768px) {
+            .biorhythm-panel {
+                position: fixed;
+                left: -280px;
+                top: 0;
+                height: 100vh;
+                z-index: 1500;
+            }
+            
+            .biorhythm-panel.active {
+                transform: translateX(280px);
+            }
+            
+            .settings-btn {
+                left: 20px;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10px;
+                max-height: 90vh;
+            }
+            
+            .map-legend {
+                top: 70px;
+            }
+            
+            .intermediary-options {
+                flex-direction: column;
+            }
+            
+            .biorhythm-comparison {
+                flex-direction: column;
+            }
+            
+            .biorhythm-before, .biorhythm-after {
+                margin: 5px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <aside class="biorhythm-panel" id="biorhythmPanel">
+        <h2>Биоритмы</h2>
+        
+        <select class="person-selector" id="personSelector">
+        </select>
+        
+        <div class="biorhythm-display" id="biorhythmDisplay">
+        </div>
+        
+        <div class="biorhythm-description">
+            <h3>Интерпретация биоритмов</h3>
+            <p><strong class="positive">Положительная фаза:</strong> Энергия, активность, хорошее настроение</p>
+            <p><strong class="negative">Отрицательная фаза:</strong> Снижение активности, усталость</p>
+            <p><strong class="neutral">Критические дни:</strong> Повышенная вероятность ошибок</p>
+        </div>
+        
+        <div class="biorhythm-date" id="currentDate"></div>
+    </aside>
+    
+    <div id="map"></div>
+    
+    <button class="settings-btn" id="settingsBtn"> Начать свой путь</button>
+    
+    <div class="map-legend">
+        <h3 style="margin-bottom: 15px; color: #4da6ff;"></h3>
+        <div class="legend-item">
+            <span class="legend-icon" style="color: #4da6ff">●</span>
+            <span>Участники (14 человек)</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-icon" style="color: #f1c40f">★</span>
+            <span>Лера</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-icon" style="color: #4da6ff">━</span>
+            <span>Активный путь</span>
+        </div>
+    </div>
+    
+    <div id="mainMenuModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Главное меню</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <button class="btn" id="selectPathBtn"> Выбрать путь</button>
+                <button class="btn btn-secondary" id="addPersonBtn"> Добавить нового человека</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="helpTypeModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Тип взаимодействия</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <button class="btn" id="helpSelfBtn">Помочь себе</button>
+                <button class="btn btn-secondary" id="helpOthersBtn"> Помочь другому</button>
+                <button class="btn btn-danger" id="backToMainBtn">← Назад</button>
+            </div>
+        </div>
+    </div>
+    
+
+    <div id="biorhythmSelectModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="biorhythmModalTitle">Выбор биоритма</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Выберите тип биоритма:</label>
+                    <select id="biorhythmTypeSelect">
+                        <option value="physical">Физический биоритм</option>
+                        <option value="emotional">Эмоциональный биоритм</option>
+                        <option value="intellectual">Интеллектуальный биоритм</option>
+                    </select>
+                </div>
+                <button class="btn" id="findCandidatesBtn">Найти кандидатов</button>
+                <button class="btn btn-danger" id="backToHelpTypeBtn">← Назад</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="candidatesModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="candidatesModalTitle">Выбор кандидата</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="candidatesContainer">
+                    <h3 style="color: #4da6ff; margin-bottom: 15px;">Таблица биоритмов:</h3>
+                    <div style="overflow-x: auto;">
+                        <table class="biorhythms-table" id="biorhythmsTable">
+                            <thead>
+                                <tr>
+                                    <th>Имя</th>
+                                    <th>Физический</th>
+                                    <th>Эмоциональный</th>
+                                    <th>Интеллектуальный</th>
+                                    <th>Выбранный</th>
+                                </tr>
+                            </thead>
+                            <tbody id="biorhythmsTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <h3 style="color: #4da6ff; margin: 25px 0 15px 0;">Рекомендуемые кандидаты:</h3>
+                    <div class="candidates-list" id="candidatesList">
+                    </div>
+                </div>
+                <button class="btn" id="selectCandidateBtn" disabled> Выбрать</button>
+                <button class="btn btn-danger" id="backToBiorhythmBtn">← Назад</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="strategyModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Планирование стратегии</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Ваш персонаж:</label>
+                    <select id="playerSelect">
+                    </select>
+                </div>
+                
+                <div class="strategy-section" id="strategySection">
+                    <h3 style="color: #4da6ff; margin-bottom: 20px;">Выбор посредников:</h3>
+                    <div id="intermediaryChoices">
+                    </div>
+                    
+                    <div id="strategyPath" style="margin-top: 25px;">
+                    </div>
+                </div>
+                
+                <button class="btn btn-warning" id="startJourneyBtn"> Отправиться в путь</button>
+                <button class="btn btn-danger" id="backToCandidatesBtn">← Назад</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="interactionModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="interactionTitle">Взаимодействие</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="interaction-result" id="interactionResult">
+                </div>
+                <button class="btn" id="continueJourneyBtn"> Продолжить путешествие</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="finalResultModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🎉 Путешествие завершено!</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="finalResultContent">
+                </div>
+                <button class="btn btn-warning" id="newJourneyBtn"> Новое путешествие</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="addPersonModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить участника</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Имя:</label>
+                    <input type="text" id="newPersonName" placeholder="Введите имя">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Город или страна:</label>
+                    <input type="text" id="newPersonLocation" placeholder="Введите местоположение">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Дата рождения:</label>
+                    <input type="date" id="newPersonBirthday">
+                </div>
+                <button class="btn" id="savePersonBtn">Сохранить</button>
+                <button class="btn btn-danger" id="backToMainFromAddBtn">← Назад</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script>
+        let participants = [
+            { id: 1, name: "Кира", city: "Витебск, Беларусь", birthday: "2002-07-09", coords: [55.1848, 30.2016] },
+            { id: 2, name: "Ариана", city: "Вильнюсский уезд, Немеж, Литва", birthday: "2008-08-17", coords: [54.6872, 25.2797] },
+            { id: 3, name: "Катя", city: "Великие Луки, Россия", birthday: "2006-05-12", coords: [56.2100, 30.3100] },
+            { id: 4, name: "Алиса", city: "Луцк, Украина", birthday: "2005-02-28", coords: [50.7476, 25.3254] },
+            { id: 5, name: "София", city: "Днепр, Украина", birthday: "2007-07-30", coords: [48.4647, 35.0462] },
+            { id: 6, name: "Александр", city: "Сингапур", birthday: "1996-12-19", coords: [1.3521, 103.8198] },
+            { id: 7, name: "Юлия", city: "Нижний Новгород, Россия", birthday: "2008-08-27", coords: [56.3269, 44.0065] },
+            { id: 8, name: "Владимир", city: "Москва, Россия", birthday: "2005-10-24", coords: [55.7558, 37.6173] },
+            { id: 9, name: "Никита", city: "Вроцлав, Польша", birthday: "2012-05-03", coords: [51.1079, 17.0385] },
+            { id: 10, name: "Анастасия", city: "Тюмень, Россия", birthday: "2005-03-08", coords: [57.1522, 65.5272] },
+            { id: 11, name: "Карина", city: "Лондон, Великобритания", birthday: "2005-03-12", coords: [51.5074, -0.1278] },
+            { id: 12, name: "Элизабет", city: "Кривой Рог, Украина", birthday: "2008-12-06", coords: [47.9105, 33.3918] },
+            { id: 13, name: "Валентин", city: "Казань, Россия", birthday: "2006-03-21", coords: [55.7963, 49.1084] },
+            { id: 14, name: "Ярослав", city: "Шуя, Ивановская область, Россия", birthday: "2004-05-01", coords: [56.8498, 41.3920] },
+            { id: 15, name: "Лера", city: "Случайное место в США", birthday: null, coords: getRandomUSLocation(), isCatalyst: true }
+        ];
+        
+        let currentHelpType = null;
+        let currentBiorhythm = null;
+        let selectedCandidate = null;
+        let currentPlayer = null;
+        let journeyPath = [];
+        let currentStep = 0;
+        let connectionGraph = {};
+        let selectedIntermediaries = {};
+        let map, markers = [], connectionLines = [], journeyLines = [];
+        
+        function getRandomUSLocation() {
+            const lat = 38 + (Math.random() * 15 - 7.5);
+            const lng = -98 + (Math.random() * 50 - 25);
+            return [lat, lng];
+        }
+        
+        function initializeMap() {
+            map = L.map('map', {
+                zoomControl: false,
+                scrollWheelZoom: true,
+                doubleClickZoom: false,
+                dragging: true
+            }).setView([50, 30], 3);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                subdomains: 'abcd',
+                maxZoom: 10,
+                minZoom: 2
+            }).addTo(map);
+        }
+        
+        function calculateBiorhythms(birthdate) {
+            if (!birthdate) return { physical: 1, emotional: 1, intellectual: 1 };
+            
+            const birthDate = new Date(birthdate);
+            const today = new Date();
+            const diffDays = Math.floor((today - birthDate) / (1000 * 60 * 60 * 24));
+            
+            return {
+                physical: Math.sin(2 * Math.PI * diffDays / 23),
+                emotional: Math.sin(2 * Math.PI * diffDays / 28),
+                intellectual: Math.sin(2 * Math.PI * diffDays / 33)
+            };
+        }
+        
+        function getBiorhythmClass(value) {
+            if (value > 0.3) return 'positive';
+            if (value < -0.3) return 'negative';
+            return 'neutral';
+        }
+        
+
+        function initializeGraph() {
+            const catId = participants.find(p => p.isCatalyst).id;
+            const people = participants.filter(p => !p.isCatalyst);
+            
+            connectionGraph = {};
+            
+            people.forEach(person => {
+
+                const otherPeople = people.filter(p => p.id !== person.id);
+                
+
+                const numIntermediaries = Math.floor(Math.random() * 3) + 1;
+                const shuffled = [...otherPeople].sort(() => 0.5 - Math.random());
+                const intermediaries = shuffled.slice(0, numIntermediaries);
+                
+                connectionGraph[person.id] = {
+                    cat: catId,
+                    intermediaries: intermediaries.map(p => p.id)
+                };
+            });
+            
+
+            connectionGraph[catId] = {
+                cat: null,
+                intermediaries: people.map(p => p.id)
+            };
+        }
+        
+
+        function addParticipantsToMap() {
+
+            drawConnections();
+            
+
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            participants.forEach(person => {
+                const biorhythms = calculateBiorhythms(person.birthday);
+                const avgBiorhythm = ((biorhythms.physical + biorhythms.emotional + biorhythms.intellectual) / 3);
+                
+                const radius = person.isCatalyst ? 12 : 8 + Math.abs(avgBiorhythm * 6);
+                const color = person.isCatalyst ? '#f1c40f' : '#4da6ff';
+                
+                const marker = L.circleMarker(person.coords, {
+                    color: '#ffffff',
+                    fillColor: color,
+                    fillOpacity: 0.9,
+                    radius: radius,
+                    weight: 3,
+                    pane: 'markerPane'
+                }).addTo(map);
+                
+                marker.bindPopup(`
+                    <div style="color: #000; font-family: 'Segoe UI', sans-serif;">
+                        <h3 style="margin: 0 0 10px 0; color: #1a1a2e;">${person.name}</h3>
+                        <p style="margin: 0 0 5px 0; color: #666;">${person.city}</p>
+                        ${person.isCatalyst ? 
+                          '<p style="margin: 0; color: #f1c40f; font-weight: bold;"></p>' : 
+                          `<table style="width: 100%; margin-top: 10px; border-collapse: collapse;">
+                             <tr><td style="padding: 2px; color: #666;">Физический:</td><td style="padding: 2px; font-weight: bold;">${biorhythms.physical.toFixed(3)}</td></tr>
+                             <tr><td style="padding: 2px; color: #666;">Эмоциональный:</td><td style="padding: 2px; font-weight: bold;">${biorhythms.emotional.toFixed(3)}</td></tr>
+                             <tr><td style="padding: 2px; color: #666;">Интеллектуальный:</td><td style="padding: 2px; font-weight: bold;">${biorhythms.intellectual.toFixed(3)}</td></tr>
+                           </table>`
+                        }
+                    </div>
+                `);
+                
+                markers.push(marker);
+            });
+        }
+        
+        function drawConnections() {
+            connectionLines.forEach(line => map.removeLayer(line));
+            connectionLines = [];
+            
+            Object.keys(connectionGraph).forEach(personId => {
+                const person = participants.find(p => p.id == personId);
+                const connections = connectionGraph[personId];
+                
+                if (!connections) return;
+                
+                if (connections.cat) {
+                    const cat = participants.find(p => p.id == connections.cat);
+                    const line = L.polyline([person.coords, cat.coords], {
+                        color: '#f1c40f',
+                        weight: 2,
+                        opacity: 0.4,
+                        dashArray: '8, 12',
+                        pane: 'overlayPane' 
+                    }).addTo(map);
+                    connectionLines.push(line);
+                }
+                
+                if (connections.intermediaries) {
+                    connections.intermediaries.forEach(intId => {
+                        const intermediary = participants.find(p => p.id == intId);
+                        const line = L.polyline([person.coords, intermediary.coords], {
+                            color: '#268bd2',
+                            weight: 1.5,
+                            opacity: 0.3,
+                            dashArray: '5, 10',
+                            pane: 'overlayPane'
+                        }).addTo(map);
+                        connectionLines.push(line);
+                    });
+                }
+            });
+        }
+        
+        function populateBiorhythmsTable(candidates) {
+            const tableBody = document.getElementById('biorhythmsTableBody');
+            tableBody.innerHTML = '';
+            
+            const people = participants.filter(p => !p.isCatalyst);
+            
+            people.forEach(person => {
+                const biorhythms = calculateBiorhythms(person.birthday);
+                const isCandidate = candidates.some(c => c.person.id === person.id);
+                
+                const row = document.createElement('tr');
+                if (isCandidate) {
+                    row.style.background = 'rgba(77, 166, 255, 0.1)';
+                    row.style.border = '1px solid #4da6ff';
+                }
+                
+                row.innerHTML = `
+                    <td style="font-weight: 600; color: ${isCandidate ? '#4da6ff' : '#e8e8e8'}">${person.name}</td>
+                    <td><span class="biorhythm-value ${getBiorhythmClass(biorhythms.physical)}">${biorhythms.physical.toFixed(3)}</span></td>
+                    <td><span class="biorhythm-value ${getBiorhythmClass(biorhythms.emotional)}">${biorhythms.emotional.toFixed(3)}</span></td>
+                    <td><span class="biorhythm-value ${getBiorhythmClass(biorhythms.intellectual)}">${biorhythms.intellectual.toFixed(3)}</span></td>
+                    <td><span class="biorhythm-value ${getBiorhythmClass(biorhythms[currentBiorhythm])}">${biorhythms[currentBiorhythm].toFixed(3)}</span></td>
+                `;
+                
+                if (isCandidate) {
+                    row.style.cursor = 'pointer';
+                    row.addEventListener('click', function() {
+                        tableBody.querySelectorAll('tr').forEach(tr => {
+                            tr.style.background = 'rgba(77, 166, 255, 0.1)';
+                        });
+                        
+                        this.style.background = 'rgba(77, 166, 255, 0.3)';
+                        
+                        selectedCandidate = candidates.find(c => c.person.id === person.id);
+                        
+                        document.querySelectorAll('.candidate-item').forEach(el => el.classList.remove('selected'));
+                        const candidateItem = document.querySelector(`[data-person-id="${person.id}"]`);
+                        if (candidateItem) {
+                            candidateItem.classList.add('selected');
+                        }
+                        
+                        document.getElementById('selectCandidateBtn').disabled = false;
+                    });
+                }
+                
+                tableBody.appendChild(row);
+            });
+        }
+        
+        function findCandidates(biorhythmType, helpType) {
+            const people = participants.filter(p => !p.isCatalyst);
+            const candidates = [];
+            
+            people.forEach(person => {
+                const biorhythms = calculateBiorhythms(person.birthday);
+                const value = biorhythms[biorhythmType];
+                candidates.push({
+                    person: person,
+                    value: value,
+                    displayValue: value.toFixed(3)
+                });
+            });
+            
+            candidates.sort((a, b) => helpType === 'self' ? b.value - a.value : a.value - b.value);
+            
+            return candidates.slice(0, 5); 
+        }
+        
+        function createIntermediaryChoices(player, target) {
+            const choicesContainer = document.getElementById('intermediaryChoices');
+            choicesContainer.innerHTML = '';
+            
+            selectedIntermediaries = {}; 
+            
+            const connections = connectionGraph[player.id];
+            if (!connections) return;
+            
+            const allPossibleSteps = [];
+            
+            const cat = participants.find(p => p.isCatalyst);
+            allPossibleSteps.push({
+                stepNum: 1,
+                type: 'catalyst',
+                options: [cat],
+                required: false
+            });
+            
+            
+            if (connections.intermediaries && connections.intermediaries.length > 0) {
+                const intermediaryOptions = connections.intermediaries.map(id => 
+                    participants.find(p => p.id === id)
+                ).filter(p => p.id !== target.id); 
+                
+                if (intermediaryOptions.length > 0) {
+                    allPossibleSteps.push({
+                        stepNum: 2,
+                        type: 'intermediary',
+                        options: intermediaryOptions,
+                        required: false
+                    });
+                }
+            }
+            
+            allPossibleSteps.forEach(step => {
+                const choiceDiv = document.createElement('div');
+                choiceDiv.className = 'intermediary-choice';
+                
+                const title = step.type === 'catalyst' ? 
+                    '🌟 Посетить Леру-катализатора (+50% к биоритмам)?' : 
+                    '👥 Выбрать посредников:';
+                
+                choiceDiv.innerHTML = `
+                    <h4 style="color: #4da6ff; margin-bottom: 10px;">${title}</h4>
+                    <div class="intermediary-options" id="options-${step.stepNum}">
+                        ${step.options.map(option => `
+                            <button class="intermediary-btn" data-step="${step.stepNum}" data-person-id="${option.id}">
+                                ${option.name}
+                                ${step.type === 'catalyst' ? '⭐' : ''}
+                            </button>
+                        `).join('')}
+                    </div>
+                `;
+                
+                choicesContainer.appendChild(choiceDiv);
+            });
+            
+            
+            document.querySelectorAll('.intermediary-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const stepNum = this.dataset.step;
+                    const personId = parseInt(this.dataset.personId);
+                    
+                    if (stepNum === '1') { 
+                        const container = document.getElementById('options-1');
+                        container.querySelectorAll('.intermediary-btn').forEach(b => b.classList.remove('selected'));
+                        
+                        if (selectedIntermediaries[stepNum] === personId) {
+                            
+                            delete selectedIntermediaries[stepNum];
+                        } else {
+                            
+                            this.classList.add('selected');
+                            selectedIntermediaries[stepNum] = personId;
+                        }
+                    } else { 
+                        if (!selectedIntermediaries[stepNum]) {
+                            selectedIntermediaries[stepNum] = [];
+                        }
+                        
+                        const index = selectedIntermediaries[stepNum].indexOf(personId);
+                        if (index > -1) {
+                            selectedIntermediaries[stepNum].splice(index, 1);
+                            this.classList.remove('selected');
+                        } else {
+                            selectedIntermediaries[stepNum].push(personId);
+                            this.classList.add('selected');
+                        }
+                        
+                        if (selectedIntermediaries[stepNum].length === 0) {
+                            delete selectedIntermediaries[stepNum];
+                        }
+                    }
+                    
+                    updateStrategyPath(player, target);
+                });
+            });
+            
+            updateStrategyPath(player, target);
+        }
+        
+        function updateStrategyPath(player, target) {
+            const pathContainer = document.getElementById('strategyPath');
+            pathContainer.innerHTML = '<h3 style="color: #4da6ff; margin-bottom: 20px;">План путешествия:</h3>';
+            
+            const steps = [];
+            let currentPerson = player;
+            let stepNumber = 1;
+            
+            Object.keys(selectedIntermediaries).sort().forEach(stepKey => {
+                const intermediaryData = selectedIntermediaries[stepKey];
+                
+                if (stepKey === '1' && intermediaryData) { 
+                    const cat = participants.find(p => p.id === intermediaryData);
+                    steps.push({
+                        step: stepNumber++,
+                        from: currentPerson,
+                        to: cat,
+                        reason: "Повышение биоритмов у катализатора (+50%)"
+                    });
+                    currentPerson = cat;
+                } else if (Array.isArray(intermediaryData)) { 
+                    intermediaryData.forEach(intId => {
+                        const intermediary = participants.find(p => p.id === intId);
+                        steps.push({
+                            step: stepNumber++,
+                            from: currentPerson,
+                            to: intermediary,
+                            reason: "Промежуточное взаимодействие"
+                        });
+                        currentPerson = intermediary;
+                    });
+                }
+            });
+            
+            steps.push({
+                step: stepNumber,
+                from: currentPerson,
+                to: target,
+                reason: currentHelpType === 'self' ? "Получение помощи" : "Оказание помощи"
+            });
+            
+            steps.forEach(step => {
+                const stepElement = document.createElement('div');
+                stepElement.className = 'path-step';
+                stepElement.innerHTML = `
+                    <div class="step-number">${step.step}</div>
+                    <div class="step-content">
+                        <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                            <strong style="color: #e8e8e8;">${step.from.name}</strong>
+                            <span class="step-arrow">→</span>
+                            <strong style="color: #4da6ff;">${step.to.name}</strong>
+                        </div>
+                        <div style="font-size: 14px; color: #aaa;">
+                            ${step.reason}
+                        </div>
+                    </div>
+                `;
+                pathContainer.appendChild(stepElement);
+            });
+            
+            journeyPath = steps;
+        }
+        
+        function animateJourney() {
+            if (currentStep >= journeyPath.length) {
+                showFinalResult();
+                return;
+            }
+            
+            const step = journeyPath[currentStep];
+            
+            journeyLines.forEach(line => map.removeLayer(line));
+            journeyLines = [];
+            
+            const journeyLine = L.polyline([step.from.coords, step.to.coords], {
+                color: '#4da6ff',
+                weight: 4,
+                opacity: 0.8,
+                className: 'journey-line'
+            }).addTo(map);
+            
+            journeyLines.push(journeyLine);
+            
+            setTimeout(() => {
+                showInteractionResult(step);
+            }, 1000);
+        }
+        
+        function showInteractionResult(step) {
+            const modal = document.getElementById('interactionModal');
+            const title = document.getElementById('interactionTitle');
+            const content = document.getElementById('interactionResult');
+            
+            title.textContent = `Встреча: ${step.from.name} → ${step.to.name}`;
+            
+
+            const fromBiorhythms = calculateBiorhythms(step.from.birthday);
+            const toBiorhythms = calculateBiorhythms(step.to.birthday);
+            
+            let change = 0;
+            let changeType = 'neutral';
+            
+            if (step.to.isCatalyst) {
+                change = 0.5; 
+                changeType = 'positive';
+            } else {
+                const diff = Math.abs(fromBiorhythms[currentBiorhythm] - toBiorhythms[currentBiorhythm]);
+                change = (0.5 - diff) * 0.3; 
+                changeType = change > 0 ? 'positive' : change < 0 ? 'negative' : 'neutral';
+            }
+            
+            const biorhythmNames = {
+                physical: 'Физический',
+                emotional: 'Эмоциональный', 
+                intellectual: 'Интеллектуальный'
+            };
+            
+            content.innerHTML = `
+                <h3 style="color: #4da6ff; margin-bottom: 20px; text-align: center;">${step.reason}</h3>
+                
+                <div style="background: rgba(77, 166, 255, 0.1); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <h4 style="color: #4da6ff; margin-bottom: 10px;">Изменения биоритма: ${biorhythmNames[currentBiorhythm]}</h4>
+                    
+                    <div class="biorhythm-comparison">
+                        <div class="biorhythm-before">
+                            <h5 style="color: #aaa; margin-bottom: 10px;">До встречи</h5>
+                            <div class="biorhythm-display-value ${getBiorhythmClass(fromBiorhythms[currentBiorhythm])}">
+                                ${fromBiorhythms[currentBiorhythm].toFixed(3)}
+                            </div>
+                        </div>
+                        <div class="biorhythm-arrow">→</div>
+                        <div class="biorhythm-after">
+                            <h5 style="color: #aaa; margin-bottom: 10px;">После встречи</h5>
+                            <div class="biorhythm-display-value ${changeType}">
+                                ${(fromBiorhythms[currentBiorhythm] + change).toFixed(3)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="biorhythms-table" style="margin-top: 20px;">
+                    <thead>
+                        <tr>
+                            <th>Участник</th>
+                            <th>Физический</th>
+                            <th>Эмоциональный</th>
+                            <th>Интеллектуальный</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="font-weight: 600;">${step.from.name}</td>
+                            <td><span class="biorhythm-value ${getBiorhythmClass(fromBiorhythms.physical)}">${fromBiorhythms.physical.toFixed(3)}</span></td>
+                            <td><span class="biorhythm-value ${getBiorhythmClass(fromBiorhythms.emotional)}">${fromBiorhythms.emotional.toFixed(3)}</span></td>
+                            <td><span class="biorhythm-value ${getBiorhythmClass(fromBiorhythms.intellectual)}">${fromBiorhythms.intellectual.toFixed(3)}</span></td>
+                        </tr>
+                        <tr>
+                            <td style="font-weight: 600;">${step.to.name}</td>
+                            <td><span class="biorhythm-value ${step.to.isCatalyst ? 'positive' : getBiorhythmClass(toBiorhythms.physical)}">${step.to.isCatalyst ? '1.000' : toBiorhythms.physical.toFixed(3)}</span></td>
+                            <td><span class="biorhythm-value ${step.to.isCatalyst ? 'positive' : getBiorhythmClass(toBiorhythms.emotional)}">${step.to.isCatalyst ? '1.000' : toBiorhythms.emotional.toFixed(3)}</span></td>
+                            <td><span class="biorhythm-value ${step.to.isCatalyst ? 'positive' : getBiorhythmClass(toBiorhythms.intellectual)}">${step.to.isCatalyst ? '1.000' : toBiorhythms.intellectual.toFixed(3)}</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div style="text-align: center; margin-top: 25px; padding: 15px; background: rgba(15, 15, 30, 0.8); border-radius: 10px; border: 2px solid ${changeType === 'positive' ? '#2ecc71' : changeType === 'negative' ? '#e74c3c' : '#f1c40f'};">
+                    <strong style="font-size: 18px;">Общий эффект:</strong> 
+                    <span class="${changeType}" style="font-size: 20px; font-weight: bold;">
+                        ${change > 0 ? '+' : ''}${change.toFixed(3)}
+                    </span>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function showFinalResult() {
+            const modal = document.getElementById('finalResultModal');
+            const content = document.getElementById('finalResultContent');
+            
+            const totalSteps = journeyPath.length;
+            
+            let totalChange = 0;
+            journeyPath.forEach(step => {
+                if (step.to.isCatalyst) {
+                    totalChange += 0.5;
+                } else {
+                    const fromBiorhythms = calculateBiorhythms(step.from.birthday);
+                    const toBiorhythms = calculateBiorhythms(step.to.birthday);
+                    const diff = Math.abs(fromBiorhythms[currentBiorhythm] - toBiorhythms[currentBiorhythm]);
+                    totalChange += (0.5 - diff) * 0.3;
+                }
+            });
+            
+            const finalPerson = journeyPath[journeyPath.length - 1].to;
+            const helpTypeText = currentHelpType === 'self' ? 'получили помощь от' : 'помогли';
+            const biorhythmNames = {
+                physical: 'физическому',
+                emotional: 'эмоциональному', 
+                intellectual: 'интеллектуальному'
+            };
+            
+            journeyLines.forEach(line => map.removeLayer(line));
+            journeyLines = [];
+            
+            content.innerHTML = `
+                <div style="text-align: center; margin-bottom: 25px;">
+                    <h3 style="color: #4da6ff; margin-bottom: 15px;">Вы успешно ${helpTypeText} ${finalPerson.name}!</h3>
+                    <p style="color: #aaa; margin: 10px 0; font-size: 16px;">Биоритм: ${biorhythmNames[currentBiorhythm]}</p>
+                </div>
+                
+                <div style="background: rgba(15, 15, 30, 0.8); padding: 20px; border-radius: 15px; margin: 20px 0; border: 2px solid #4da6ff;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <span style="color: #aaa;">Пройдено шагов:</span>
+                        <strong style="color: #4da6ff; font-size: 18px;">${totalSteps}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                        <span style="color: #aaa;">Использованы посредники:</span>
+                        <strong style="color: #4da6ff; font-size: 18px;">${Object.keys(selectedIntermediaries).length}</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span style="color: #aaa;">Изменение биоритма:</span>
+                        <strong class="${totalChange >= 0 ? 'positive' : 'negative'}" style="font-size: 20px;">
+                            ${totalChange > 0 ? '+' : ''}${totalChange.toFixed(3)}
+                        </strong>
+                    </div>
+                </div>
+                
+                <div style="background: rgba(77, 166, 255, 0.1); padding: 20px; border-radius: 15px; border: 2px solid #4da6ff; margin-top: 25px;">
+                    <h4 style="color: #4da6ff; margin-bottom: 15px; text-align: center;">🎯 Детали путешествия:</h4>
+                    ${journeyPath.map(step => `
+                        <div style="margin-bottom: 10px; padding: 10px; background: rgba(15, 15, 30, 0.5); border-radius: 8px;">
+                            <strong>${step.from.name}</strong> → <strong>${step.to.name}</strong>
+                            <div style="font-size: 12px; color: #aaa; margin-top: 5px;">${step.reason}</div>
+                        </div>
+                    `).join('')}
+                </div>
+                
+                <div style="text-align: center; margin-top: 25px; padding: 20px; background: linear-gradient(135deg, rgba(77, 166, 255, 0.1), rgba(38, 139, 210, 0.1)); border-radius: 15px; border: 2px solid #4da6ff;">
+                    <h4 style="color: #4da6ff; margin-bottom: 15px;">🎉 Поздравляем!</h4>
+                    <p style="color: #e8e8e8; line-height: 1.6;">Ваше путешествие по графу биоритмов завершено успешно! Стратегический выбор посредников помог оптимизировать результат.</p>
+                </div>
+            `;
+            
+            modal.style.display = 'flex';
+        }
+        
+        function populatePlayerSelect() {
+            const select = document.getElementById('playerSelect');
+            select.innerHTML = '<option value="">Выберите себя</option>';
+            
+            participants.filter(p => !p.isCatalyst).forEach(person => {
+                const option = document.createElement('option');
+                option.value = person.id;
+                option.textContent = person.name;
+                select.appendChild(option);
+            });
+        }
+        
+        function populatePersonSelector() {
+            const selector = document.getElementById('personSelector');
+            selector.innerHTML = '<option value="">Выберите человека</option>';
+            
+            participants.forEach(person => {
+                const option = document.createElement('option');
+                option.value = person.id;
+                option.textContent = person.name;
+                selector.appendChild(option);
+            });
+        }
+        
+        function updateBiorhythmDisplay(personId) {
+            const display = document.getElementById('biorhythmDisplay');
+            const person = participants.find(p => p.id == personId);
+            
+            if (!person) {
+                display.innerHTML = '<p style="text-align: center; color: #aaa;">Выберите человека</p>';
+                return;
+            }
+            
+            const biorhythms = calculateBiorhythms(person.birthday);
+            const today = new Date();
+            const dateStr = today.toLocaleDateString('ru-RU', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+            
+            document.getElementById('currentDate').textContent = `На ${dateStr}`;
+            
+            display.innerHTML = `
+                <h3 style="color: #4da6ff; margin-bottom: 15px; text-align: center;">${person.name}</h3>
+                <p style="text-align: center; color: #a3c6e0; margin-bottom: 20px;">${person.city}</p>
+                
+                <div class="biorhythm-label">
+                    <span class="biorhythm-name">Физический</span>
+                    <span class="biorhythm-value ${getBiorhythmClass(biorhythms.physical)}">${biorhythms.physical.toFixed(3)}</span>
+                </div>
+                <div class="biorhythm-bar">
+                    <div class="biorhythm-fill physical-fill" style="width: ${(biorhythms.physical + 1) * 50}%;"></div>
+                </div>
+                
+                <div class="biorhythm-label">
+                    <span class="biorhythm-name">Эмоциональный</span>
+                    <span class="biorhythm-value ${getBiorhythmClass(biorhythms.emotional)}">${biorhythms.emotional.toFixed(3)}</span>
+                </div>
+                <div class="biorhythm-bar">
+                    <div class="biorhythm-fill emotional-fill" style="width: ${(biorhythms.emotional + 1) * 50}%;"></div>
+                </div>
+                
+                <div class="biorhythm-label">
+                    <span class="biorhythm-name">Интеллектуальный</span>
+                    <span class="biorhythm-value ${getBiorhythmClass(biorhythms.intellectual)}">${biorhythms.intellectual.toFixed(3)}</span>
+                </div>
+                <div class="biorhythm-bar">
+                    <div class="biorhythm-fill intellectual-fill" style="width: ${(biorhythms.intellectual + 1) * 50}%;"></div>
+                </div>
+            `;
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeMap();
+            initializeGraph();
+            addParticipantsToMap();
+            populatePlayerSelect();
+            populatePersonSelector();
+            
+            document.getElementById('personSelector').addEventListener('change', function() {
+                updateBiorhythmDisplay(parseInt(this.value));
+            });
+            
+            updateBiorhythmDisplay(null);
+            
+            document.getElementById('settingsBtn').addEventListener('click', function() {
+                document.getElementById('mainMenuModal').style.display = 'flex';
+            });
+            
+            document.getElementById('selectPathBtn').addEventListener('click', function() {
+                document.getElementById('mainMenuModal').style.display = 'none';
+                document.getElementById('helpTypeModal').style.display = 'flex';
+            });
+            
+            document.getElementById('addPersonBtn').addEventListener('click', function() {
+                document.getElementById('mainMenuModal').style.display = 'none';
+                document.getElementById('addPersonModal').style.display = 'flex';
+            });
+            
+            document.getElementById('helpSelfBtn').addEventListener('click', function() {
+                currentHelpType = 'self';
+                document.getElementById('biorhythmModalTitle').textContent = 'Какой биоритм улучшить?';
+                document.getElementById('helpTypeModal').style.display = 'none';
+                document.getElementById('biorhythmSelectModal').style.display = 'flex';
+            });
+            
+            document.getElementById('helpOthersBtn').addEventListener('click', function() {
+                currentHelpType = 'others';
+                document.getElementById('biorhythmModalTitle').textContent = 'По какому биоритму помочь?';
+                document.getElementById('helpTypeModal').style.display = 'none';
+                document.getElementById('biorhythmSelectModal').style.display = 'flex';
+            });
+            
+
+            document.getElementById('findCandidatesBtn').addEventListener('click', function() {
+                currentBiorhythm = document.getElementById('biorhythmTypeSelect').value;
+                const candidates = findCandidates(currentBiorhythm, currentHelpType);
+                
+
+                populateBiorhythmsTable(candidates);
+                
+
+                const list = document.getElementById('candidatesList');
+                list.innerHTML = '';
+                
+                const titleText = currentHelpType === 'self' ? 
+                    'Кто может вам помочь (лучшие показатели):' : 
+                    'Кому вы можете помочь (нуждающиеся):';
+                    
+                document.getElementById('candidatesModalTitle').textContent = titleText;
+                
+                candidates.forEach(candidate => {
+                    const item = document.createElement('div');
+                    item.className = 'candidate-item';
+                    item.dataset.personId = candidate.person.id;
+                    
+                    item.innerHTML = `
+                        <div class="candidate-name">${candidate.person.name}</div>
+                        <div class="candidate-details">
+                            <div class="candidate-location">${candidate.person.city}</div>
+                            <div class="candidate-value">${candidate.displayValue}</div>
+                        </div>
+                    `;
+                    
+                    item.addEventListener('click', function() {
+                        document.querySelectorAll('.candidate-item').forEach(el => el.classList.remove('selected'));
+                        this.classList.add('selected');
+                        selectedCandidate = candidate;
+                        document.getElementById('selectCandidateBtn').disabled = false;
+                        
+                       
+                        const tableBody = document.getElementById('biorhythmsTableBody');
+                        tableBody.querySelectorAll('tr').forEach(tr => {
+                            tr.style.background = candidates.some(c => c.person.name === tr.cells[0].textContent) ? 
+                                'rgba(77, 166, 255, 0.1)' : 'transparent';
+                        });
+                        
+                        const targetRow = Array.from(tableBody.querySelectorAll('tr')).find(tr => 
+                            tr.cells[0].textContent === candidate.person.name
+                        );
+                        if (targetRow) {
+                            targetRow.style.background = 'rgba(77, 166, 255, 0.3)';
+                        }
+                    });
+                    
+                    list.appendChild(item);
+                });
+                
+                document.getElementById('biorhythmSelectModal').style.display = 'none';
+                document.getElementById('candidatesModal').style.display = 'flex';
+            });
+            
+            
+            document.getElementById('selectCandidateBtn').addEventListener('click', function() {
+                document.getElementById('candidatesModal').style.display = 'none';
+                document.getElementById('strategyModal').style.display = 'flex';
+            });
+            
+            
+            document.getElementById('playerSelect').addEventListener('change', function() {
+                const playerId = parseInt(this.value);
+                if (playerId && selectedCandidate) {
+                    currentPlayer = participants.find(p => p.id === playerId);
+                    createIntermediaryChoices(currentPlayer, selectedCandidate.person);
+                }
+            });
+            
+            
+            document.getElementById('startJourneyBtn').addEventListener('click', function() {
+                if (!currentPlayer || journeyPath.length === 0) {
+                    alert('Пожалуйста, выберите игрока и составьте маршрут');
+                    return;
+                }
+                
+                currentStep = 0;
+                document.getElementById('strategyModal').style.display = 'none';
+                animateJourney();
+            });
+            
+           
+            document.getElementById('continueJourneyBtn').addEventListener('click', function() {
+                document.getElementById('interactionModal').style.display = 'none';
+                currentStep++;
+                setTimeout(() => animateJourney(), 500);
+            });
+            
+           
+            document.getElementById('newJourneyBtn').addEventListener('click', function() {
+            
+                currentHelpType = null;
+                currentBiorhythm = null;
+                selectedCandidate = null;
+                currentPlayer = null;
+                journeyPath = [];
+                currentStep = 0;
+                selectedIntermediaries = {};
+                
+              
+                journeyLines.forEach(line => map.removeLayer(line));
+                journeyLines = [];
+                
+                document.getElementById('finalResultModal').style.display = 'none';
+                document.getElementById('mainMenuModal').style.display = 'flex';
+            });
+            
+
+            document.getElementById('savePersonBtn').addEventListener('click', function() {
+                const name = document.getElementById('newPersonName').value.trim();
+                const location = document.getElementById('newPersonLocation').value.trim();
+                const birthday = document.getElementById('newPersonBirthday').value;
+                
+                if (!name || !location || !birthday) {
+                    alert('Пожалуйста, заполните все поля');
+                    return;
+                }
+                
+
+                const lat = 50 + (Math.random() * 40 - 20);
+                const lng = 30 + (Math.random() * 60 - 30);
+                
+                const newPerson = {
+                    id: participants.length + 1,
+                    name: name,
+                    city: location,
+                    birthday: birthday,
+                    coords: [lat, lng]
+                };
+                
+                participants.push(newPerson);
+                
+
+                const catId = participants.find(p => p.isCatalyst).id;
+                const otherPeople = participants.filter(p => !p.isCatalyst && p.id !== newPerson.id);
+                
+                if (otherPeople.length > 0) {
+                    const numIntermediaries = Math.floor(Math.random() * Math.min(3, otherPeople.length)) + 1;
+                    const shuffled = [...otherPeople].sort(() => 0.5 - Math.random());
+                    const intermediaries = shuffled.slice(0, numIntermediaries);
+                    
+                    connectionGraph[newPerson.id] = {
+                        cat: catId,
+                        intermediaries: intermediaries.map(p => p.id)
+                    };
+                    
+                    connectionGraph[catId].intermediaries.push(newPerson.id);
+                }
+                
+
+                addParticipantsToMap();
+                populatePlayerSelect();
+                populatePersonSelector();
+                
+
+                document.getElementById('newPersonName').value = '';
+                document.getElementById('newPersonLocation').value = '';
+                document.getElementById('newPersonBirthday').value = '';
+                
+                alert(`${name} успешно добавлен(а) в систему!`);
+                
+                document.getElementById('addPersonModal').style.display = 'none';
+                document.getElementById('mainMenuModal').style.display = 'flex';
+            });
+            
+
+            document.getElementById('backToMainBtn').addEventListener('click', function() {
+                document.getElementById('helpTypeModal').style.display = 'none';
+                document.getElementById('mainMenuModal').style.display = 'flex';
+            });
+            
+            document.getElementById('backToHelpTypeBtn').addEventListener('click', function() {
+                document.getElementById('biorhythmSelectModal').style.display = 'none';
+                document.getElementById('helpTypeModal').style.display = 'flex';
+            });
+            
+            document.getElementById('backToBiorhythmBtn').addEventListener('click', function() {
+                document.getElementById('candidatesModal').style.display = 'none';
+                document.getElementById('biorhythmSelectModal').style.display = 'flex';
+            });
+            
+            document.getElementById('backToCandidatesBtn').addEventListener('click', function() {
+                document.getElementById('strategyModal').style.display = 'none';
+                document.getElementById('candidatesModal').style.display = 'flex';
+            });
+            
+            document.getElementById('backToMainFromAddBtn').addEventListener('click', function() {
+                document.getElementById('addPersonModal').style.display = 'none';
+                document.getElementById('mainMenuModal').style.display = 'flex';
+            });
+            
+
+            document.querySelectorAll('.close-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    document.querySelectorAll('.modal').forEach(modal => {
+                        modal.style.display = 'none';
+                    });
+                });
+            });
+            
+
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        this.style.display = 'none';
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
